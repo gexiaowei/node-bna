@@ -1,0 +1,11 @@
+.idea
+dist
+node_modules
+bower_components
+npm-debug.log
+**/.DS_Store
+public/avatar/
+test/
+public/share/
+npm-debug.log.*
+tmp/
