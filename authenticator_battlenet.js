@@ -7,10 +7,8 @@
 "use strict";
 
 const crypto = require('crypto');
-const Promise = require('bluebird');
 const bignum = require('bignum');
-const request = Promise.promisify(require('request'), { multiArgs: true });
-request.debug = true;
+const request = require('sync-request');
 
 const server = 'http://mobile-service.blizzard.com';
 
@@ -25,7 +23,7 @@ const restore_validate_uri = "/enrollment/validatePaperRestore.htm";
 const accepted_region = ['EU', 'US', 'CN'];
 
 class BattleAuthenticator {
-    constructor(serial, secret = null) {
+    constructor(serial, secret) {
         if (!secret) {
             this.region = serial;
         } else {
@@ -46,7 +44,7 @@ class BattleAuthenticator {
         return authenticator;
     }
 
-    static factory(serial, secret, sync = null) {
+    static factory(serial, secret, sync) {
         let authenticator = new BattleAuthenticator(serial, secret);
         if (sync) {
             authenticator.sync = sync;
@@ -57,16 +55,11 @@ class BattleAuthenticator {
     initialize() {
         let enc_key = this.createKey(37);
         let data = Buffer.concat([new Buffer([1]), enc_key, Buffer.from(this.region), Buffer.from('Motorola RAZR v3')]);
-        return this.send(initialize_uri, this.encrypt(data))
-            .then(buf => {
-                let result = this.decrypt(buf.slice(8), enc_key);
-                this.sync = bignum.fromBuffer(buf.slice(0, 8)).toNumber();
-                this.serial = Buffer.from(result.slice(0, 20)).toString('hex');
-                this.secret = Buffer.from(result.slice(20)).toString();
-            })
-            .catch(error => {
-                console.error(error);
-            });
+        let buffer = this.send(initialize_uri, this.encrypt(data));
+        let result = this.decrypt(buffer.slice(8), enc_key);
+        this.sync = bignum.fromBuffer(buffer.slice(0, 8)).toNumber();
+        this.serial = result.slice(20).toString();
+        this.secret = Buffer.from(result.slice(0, 20)).toString('hex');
     }
 
     restore() {
@@ -97,17 +90,14 @@ class BattleAuthenticator {
     send(uri, data = '') {
         let host = this.server;
         let method = !data ? 'GET' : 'POST';
-        console.log(data);
-        return request({
-            url: `${host}${uri}`,
-            method,
+        let response = request(method, `${host}${uri}`, {
             headers: {
-                'Content-Type': 'application/octet-stream',
-                'Content-length': data.length
+                'Content-Type': 'application/octet-stream'
             },
             encoding: null,
             body: data
-        }).then(data => data[1]);
+        });
+        return response.getBody();
     }
 
     servertime() {

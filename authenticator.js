@@ -6,7 +6,6 @@
  */
 "use strict";
 
-const crypto = require('crypto');
 const b32 = require('thirty-two');
 const {totp} = require('notp');
 
