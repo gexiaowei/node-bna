@@ -58,8 +58,8 @@ class BattleAuthenticator {
         let buffer = this.send(initialize_uri, this.encrypt(data));
         let result = this.decrypt(buffer.slice(8), enc_key);
         this.sync = bignum.fromBuffer(buffer.slice(0, 8)).toNumber();
-        this.serial = result.slice(20).toString();
-        this.secret = Buffer.from(result.slice(0, 20)).toString('hex');
+        this.serial = result.slice(20);
+        this.secret = result.slice(0, 20);
     }
 
     restore() {
@@ -121,37 +121,29 @@ class BattleAuthenticator {
     }
 
     get region() {
-        if (!this._region) {
-            throw new Error('Region must be set.')
-        }
-        return this._region;
+        return this._region.toString();
     }
 
     set region(region) {
-        region = !!region ? region.toUpperCase() : '';
-        if (accepted_region.indexOf(region) == -1) {
-            throw new Error(`Invalid region provided : ${region}`);
-        }
-        this._region = region;
+        if (typeof region === 'string') region = region.toUpperCase();
+        this._region = Buffer.from(region);
     }
 
     get serial() {
-        return this._serial;
+        return this._serial.toString();
     }
 
     set serial(serial) {
-        console.log(`serial:${serial}`);
-        this._region = serial.substr(0, 2).toUpperCase();
-        this._serial = serial;
+        this._serial = Buffer.from(serial);
+        this._region = serial.slice(0, 2);
     }
 
     get secret() {
-        return this._secret;
+        return this._secret.toString('hex');
     }
 
     set secret(secret) {
-        console.log(`secret:${secret}`);
-        this._secret = typeof secret === 'string' ? Buffer.from(secret) : secret;
+        this._secret = Buffer.from(secret);
     }
 
     get sync() {
@@ -159,32 +151,29 @@ class BattleAuthenticator {
     }
 
     set sync(sync) {
-        console.log(`sync:${sync}`);
         this._sync = sync;
     }
 
-    get plain_serial() {
-        return this._serial.replace('-', '').toUpperCase();
-    }
-
     get restore_code() {
-        let serial = this.plain_serial;
-        let secret = Buffer.from(this.secret);
-        //TODO add data calculate
-        let data = '';
-        return BattleAuthenticatorCrypto.restore_code_to_char(data);
-    }
-
-    get server() {
-        return `${server}`
+        if (this._restore_code) {
+            return this._restore_code;
+        } else {
+            let data = crypto.createHash('sha1').update(this.plain_serial + this._secret.toString('hex')).digest('hex').substr(-10);
+            console.log(data);
+            return BattleAuthenticatorCrypto.restore_code_to_char(data);
+        }
     }
 
     set restore_code(restore_code) {
         this._restore_code = restore_code;
     }
 
-    get restore_code() {
-        return this._restore_code.toUpperCase();
+    get plain_serial() {
+        return this._serial.toString().replace(/-/g, '').toUpperCase();
+    }
+
+    get server() {
+        return `${server}`
     }
 }
 
@@ -214,11 +203,35 @@ class BattleAuthenticatorCrypto {
     }
 
     static restore_code_from_char(restore) {
-
+        return restore.split('').map(item => {
+            let temp = item.charCodeAt(0);
+            if (temp > 47 && temp < 58)
+                temp -= 48;
+            else {
+                if (temp > 82) temp--; // S
+                if (temp > 78) temp--; // O
+                if (temp > 75) temp--; // L
+                if (temp > 72) temp--; // I
+                temp -= 55;
+            }
+            return String.fromCharCode(temp);
+        }).join('');
     }
 
     static restore_code_to_char(data) {
-
+        return data.split('').map(item => {
+            let temp = item.charCodeAt(0) & 0x1f;
+            if (temp < 10)
+                temp += 48;
+            else {
+                temp += 55;
+                if (temp > 72) temp++; // I
+                if (temp > 75) temp++; // L
+                if (temp > 78) temp++; // O
+                if (temp > 82) temp++; // S
+            }
+            return String.fromCharCode(temp);
+        }).join('');
     }
 
     static bchexdec(hex) {
