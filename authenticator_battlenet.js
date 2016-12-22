@@ -25,12 +25,6 @@ const restore_validate_uri = "/enrollment/validatePaperRestore.htm";
 
 const accepted_region = ['EU', 'US', 'CN'];
 
-
-const GENERATE_SIZE = 45;
-const SYNC_SIZE = 8;
-const RESTORE_CHALLENGE_SIZE = 32;
-const RESTORE_VALIDATE_SIZE = 20;
-
 class BattleAuthenticator {
     constructor(serial, secret = null) {
         if (!secret) {
@@ -64,7 +58,7 @@ class BattleAuthenticator {
     initialize() {
         let enc_key = this.createKey(37);
         let data = Buffer.concat([new Buffer([1]), enc_key, Buffer.from(this.region), Buffer.from('Motorola RAZR v3')]);
-        return this.send(initialize_uri, GENERATE_SIZE, this.encrypt(data))
+        return this.send(initialize_uri, this.encrypt(data))
             .then(buf => {
                 let result = this.decrypt(buf.slice(8), enc_key);
                 this.sync = bignum.fromBuffer(buf.slice(0, 8)).toNumber();
@@ -80,10 +74,10 @@ class BattleAuthenticator {
         let serial = this.plain_serial;
         let restore_code = BattleAuthenticatorCrypto.restore_code_from_char(this.restore_code);
         let enc_key = this.createKey(20);
-        return this.send(restore_uri, RESTORE_CHALLENGE_SIZE, serial)
+        return this.send(restore_uri, serial)
             .then(challenge => crypto.createHmac('sha1', restore_code).update(challenge).digest('hex'))
             .then(mac => Buffer.concat([Buffer.from(serial), this.encrypt(Buffer.concat([mac, enc_key]))]))
-            .then(data => this.send(restore_validate_uri, RESTORE_VALIDATE_SIZE, data))
+            .then(data => this.send(restore_validate_uri, data))
             .then(data => this.decrypt(data, enc_key))
             .then(data => {
                 this.secret = data;
@@ -93,7 +87,7 @@ class BattleAuthenticator {
     }
 
     synchronize() {
-        return this.send(synchronize_uri, SYNC_SIZE)
+        return this.send(synchronize_uri)
             .then(data => {
                 this.sync = data;
                 return sync;
@@ -101,7 +95,7 @@ class BattleAuthenticator {
     }
 
 
-    send(uri, response_size, data = '') {
+    send(uri, data = '') {
         let host = this.server;
         let method = !data ? 'GET' : 'POST';
         console.log(data);
@@ -247,4 +241,4 @@ class BattleAuthenticatorCrypto {
     }
 }
 
-BattleAuthenticator.generate('EU');
+module.exports = BattleAuthenticator;
