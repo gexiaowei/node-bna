@@ -62,20 +62,26 @@ class BattleAuthenticator {
         this.secret = result.slice(0, 20);
     }
 
-    restore() {
+    restore(restore_code) {
+        restore_code = BattleAuthenticatorCrypto.restore_code_from_char(restore_code);
         let serial = this.plain_serial;
-        let restore_code = BattleAuthenticatorCrypto.restore_code_from_char(this.restore_code);
         let enc_key = this.createKey(20);
-        return this.send(restore_uri, serial)
-            .then(challenge => crypto.createHmac('sha1', restore_code).update(challenge).digest('hex'))
-            .then(mac => Buffer.concat([Buffer.from(serial), this.encrypt(Buffer.concat([mac, enc_key]))]))
-            .then(data => this.send(restore_validate_uri, data))
-            .then(data => this.decrypt(data, enc_key))
-            .then(data => {
-                this.secret = data;
-                return data;
-            })
-            .then(this.synchronize)
+        let buffer = this.send(restore_uri, serial);
+        console.log(buffer.length);
+        let mac = crypto.createHmac('sha1', restore_code).update(buffer).digest('hex');
+        let data = Buffer.concat([Buffer.from(serial), this.encrypt(Buffer.concat([Buffer.from(mac), enc_key]))]);
+        let respones = this.send(restore_validate_uri, data);
+        this.secret = this.decrypt(respones, enc_key);
+        // return this.send(restore_uri, serial)
+        //     .then(challenge => crypto.createHmac('sha1', restore_code).update(challenge).digest('hex'))
+        //     .then(mac => Buffer.concat([Buffer.from(serial), this.encrypt(Buffer.concat([mac, enc_key]))]))
+        //     .then(data => this.send(restore_validate_uri, data))
+        //     .then(data => this.decrypt(data, enc_key))
+        //     .then(data => {
+        //         this.secret = data;
+        //         return data;
+        //     })
+        //     .then(this.synchronize)
     }
 
     synchronize() {
@@ -88,9 +94,9 @@ class BattleAuthenticator {
 
 
     send(uri, data = '') {
-        let host = this.server;
+        console.log(1, data);
         let method = !data ? 'GET' : 'POST';
-        let response = request(method, `${host}${uri}`, {
+        let response = request(method, `${server}${uri}`, {
             headers: {
                 'Content-Type': 'application/octet-stream'
             },
@@ -158,8 +164,7 @@ class BattleAuthenticator {
         if (this._restore_code) {
             return this._restore_code;
         } else {
-            let data = crypto.createHash('sha1').update(this.plain_serial + this._secret.toString('hex')).digest('hex').substr(-10);
-            console.log(data);
+            let data = crypto.createHash('sha1').update(Buffer.concat([this.plain_serial, this._secret])).digest().slice(-10);
             return BattleAuthenticatorCrypto.restore_code_to_char(data);
         }
     }
@@ -169,11 +174,7 @@ class BattleAuthenticator {
     }
 
     get plain_serial() {
-        return this._serial.toString().replace(/-/g, '').toUpperCase();
-    }
-
-    get server() {
-        return `${server}`
+        return Buffer.from(this._serial.toString().replace(/-/g, '').toUpperCase());
     }
 }
 
@@ -219,8 +220,8 @@ class BattleAuthenticatorCrypto {
     }
 
     static restore_code_to_char(data) {
-        return data.split('').map(item => {
-            let temp = item.charCodeAt(0) & 0x1f;
+        return Array.from(data).map(item => {
+            let temp = item & 0x1f;
             if (temp < 10)
                 temp += 48;
             else {
