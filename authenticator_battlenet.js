@@ -66,22 +66,11 @@ class BattleAuthenticator {
         restore_code = BattleAuthenticatorCrypto.restore_code_from_char(restore_code);
         let serial = this.plain_serial;
         let enc_key = this.createKey(20);
-        let buffer = this.send(restore_uri, serial);
-        console.log(buffer.length);
-        let mac = crypto.createHmac('sha1', restore_code).update(buffer).digest('hex');
-        let data = Buffer.concat([Buffer.from(serial), this.encrypt(Buffer.concat([Buffer.from(mac), enc_key]))]);
+        let challenge = this.send(restore_uri, serial);
+        let mac = crypto.createHmac('sha1', restore_code).update(Buffer.concat([serial, challenge])).digest();
+        let data = Buffer.concat([serial, this.encrypt(Buffer.concat([mac, enc_key]))]);
         let respones = this.send(restore_validate_uri, data);
         this.secret = this.decrypt(respones, enc_key);
-        // return this.send(restore_uri, serial)
-        //     .then(challenge => crypto.createHmac('sha1', restore_code).update(challenge).digest('hex'))
-        //     .then(mac => Buffer.concat([Buffer.from(serial), this.encrypt(Buffer.concat([mac, enc_key]))]))
-        //     .then(data => this.send(restore_validate_uri, data))
-        //     .then(data => this.decrypt(data, enc_key))
-        //     .then(data => {
-        //         this.secret = data;
-        //         return data;
-        //     })
-        //     .then(this.synchronize)
     }
 
     synchronize() {
@@ -94,7 +83,6 @@ class BattleAuthenticator {
 
 
     send(uri, data = '') {
-        console.log(1, data);
         let method = !data ? 'GET' : 'POST';
         let response = request(method, `${server}${uri}`, {
             headers: {
@@ -204,7 +192,7 @@ class BattleAuthenticatorCrypto {
     }
 
     static restore_code_from_char(restore) {
-        return restore.split('').map(item => {
+        return Buffer.from(restore.split('').map(item => {
             let temp = item.charCodeAt(0);
             if (temp > 47 && temp < 58)
                 temp -= 48;
@@ -215,8 +203,8 @@ class BattleAuthenticatorCrypto {
                 if (temp > 72) temp--; // I
                 temp -= 55;
             }
-            return String.fromCharCode(temp);
-        }).join('');
+            return temp;
+        }));
     }
 
     static restore_code_to_char(data) {
