@@ -74,13 +74,9 @@ class BattleAuthenticator {
     }
 
     synchronize() {
-        return this.send(synchronize_uri)
-            .then(data => {
-                this.sync = data;
-                return sync;
-            });
+        let response = this.send(synchronize_uri);
+        this.sync = bignum.fromBuffer(response).toNumber();
     }
-
 
     send(uri, data = '') {
         let method = !data ? 'GET' : 'POST';
