@@ -47,7 +47,7 @@ class BattleAuthenticator {
     static factory(serial, secret, sync) {
         let authenticator = new BattleAuthenticator(serial, secret);
         if (sync) {
-            authenticator.sync = sync;
+            authenticator._sync = sync;
         }
         return authenticator;
     }
@@ -89,14 +89,6 @@ class BattleAuthenticator {
         });
         return response.getBody();
     }
-
-    servertime() {
-        if (!this.sync) {
-            this.synchronize();
-        }
-        return Date.now() + this.sync;
-    }
-
 
     createKey(size) {
         return crypto.randomBytes(size);
@@ -141,7 +133,7 @@ class BattleAuthenticator {
     }
 
     set sync(sync) {
-        this._sync = sync;
+        this._sync = sync - Date.now();
     }
 
     get restore_code() {
@@ -159,6 +151,27 @@ class BattleAuthenticator {
 
     get plain_serial() {
         return Buffer.from(this._serial.toString().replace(/-/g, '').toUpperCase());
+    }
+
+    get waiting_time() {
+        return 30000;
+    }
+
+    get server_time() {
+        if (this.sync) this.synchronize();
+        return Date.now() + this.sync;
+    }
+
+    get code() {
+        let secret = this.secret;
+        let time = this.server_time / this.waiting_time;
+        //TODO convert the cycle to a 8 bytes unsigned long big endian order
+        let cycle = time;
+        let mac = crypto.createHmac('sha1', secret).update(cycle).digest();
+        let start = parseInt(mac[39], 16) * 2;
+        let mac_part = mac.slice(start, 8);
+        let code = parseInt(mac_part) & 0x7fffffff;
+        return code;
     }
 }
 
