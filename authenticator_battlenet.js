@@ -5,7 +5,6 @@
  * copyright 2014-2016, gandxiaowei@gmail.com all rights reserved.
  */
 "use strict";
-"use strict";
 
 const crypto = require('crypto');
 const Promise = require('bluebird');
