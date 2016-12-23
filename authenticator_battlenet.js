@@ -204,14 +204,14 @@ class BattleAuthenticator {
     }
 
     get server_time() {
-        if (this.sync) this.synchronize();
+        if (!this.sync) this.synchronize();
         return Date.now() + this.sync;
     }
 
     get code() {
         let cycle = new Buffer(8);
         cycle.writeUIntBE(Math.floor(this.server_time / this.waiting_time), 0, 8);
-        let mac = crypto.createHmac('sha1', this.secret).update(cycle).digest('hex');
+        let mac = crypto.createHmac('sha1', this._secret).update(cycle).digest('hex');
         let mac_part = mac.substr(parseInt(mac[39], 16) * 2, 8);
         let code = String((parseInt(mac_part, 16) & 0x7fffffff) % 100000000);
         return Array(8 - code.length + 1).join('0') + code;
