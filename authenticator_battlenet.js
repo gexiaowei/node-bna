@@ -163,15 +163,12 @@ class BattleAuthenticator {
     }
 
     get code() {
-        let secret = this.secret;
-        let time = this.server_time / this.waiting_time;
-        //TODO convert the cycle to a 8 bytes unsigned long big endian order
-        let cycle = time;
-        let mac = crypto.createHmac('sha1', secret).update(cycle).digest();
-        let start = parseInt(mac[39], 16) * 2;
-        let mac_part = mac.slice(start, 8);
-        let code = parseInt(mac_part) & 0x7fffffff;
-        return code;
+        let cycle = new Buffer(8);
+        cycle.writeUIntBE(Math.floor(this.server_time / this.waiting_time), 0, 8);
+        let mac = crypto.createHmac('sha1', this.secret).update(cycle).digest('hex');
+        let mac_part = mac.substr(parseInt(mac[39], 16) * 2, 8);
+        let code = String((parseInt(mac_part, 16) & 0x7fffffff) % 100000000);
+        return Array(8 - code.length + 1).join('0') + code;
     }
 }
 
