@@ -10,7 +10,11 @@ const crypto = require('crypto');
 const bignum = require('bignum');
 const request = require('sync-request');
 
-const server = 'http://mobile-service.blizzard.com';
+const server = {
+    'CN': 'http://mobile-service.battlenet.com.cn',
+    'US': 'http://mobile-service.blizzard.com',
+    'EU': 'http://mobile-service.blizzard.com'
+};
 
 const initialize_uri = "/enrollment/enroll.htm";
 
@@ -80,7 +84,7 @@ class BattleAuthenticator {
 
     send(uri, data = '') {
         let method = !data ? 'GET' : 'POST';
-        let response = request(method, `${server}${uri}`, {
+        let response = request(method, `${server[this.region]}${uri}`, {
             headers: {
                 'Content-Type': 'application/octet-stream'
             },
