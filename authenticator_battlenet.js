@@ -24,7 +24,9 @@ const restore_uri = "/enrollment/initiatePaperRestore.htm";
 
 const restore_validate_uri = "/enrollment/validatePaperRestore.htm";
 
-const accepted_region = ['EU', 'US', 'CN'];
+const RSA_MOD = bignum("104890018807986556874007710914205443157030159668034197186125678960287470894290830530618284943118405110896322835449099433232093151168250152146023319326491587651685252774820340995950744075665455681760652136576493028733914892166700899109836291180881063097461175643998356321993663868233366705340758102567742483097");
+const RSA_KEY = bignum(257);
+
 
 class BattleAuthenticator {
     constructor(serial, secret) {
@@ -67,7 +69,7 @@ class BattleAuthenticator {
     }
 
     restore(restore_code) {
-        restore_code = BattleAuthenticatorCrypto.restore_code_from_char(restore_code);
+        restore_code = this.restore_code_from_char(restore_code);
         let serial = this.plain_serial;
         let enc_key = this.createKey(20);
         let challenge = this.send(restore_uri, serial);
@@ -98,12 +100,52 @@ class BattleAuthenticator {
         return crypto.randomBytes(size);
     }
 
-    encrypt(data) {
-        return BattleAuthenticatorCrypto.encrypt(data);
+    encrypt(buffer) {
+        let data = bignum(buffer.toString('hex'), 16);
+        let n = data.pow(RSA_KEY).mod(RSA_MOD);
+        let ret = [];
+        while (n > 0) {
+            let m = n.mod(256);
+            ret.unshift(m.toNumber());
+            n = n.div(256);
+        }
+        return Buffer.from(ret);
     }
 
-    decrypt(data, key) {
-        return BattleAuthenticatorCrypto.decrypt(data, key);
+    decrypt(buffer, key) {
+        return Buffer.from(buffer.map((item, index) => item ^ key[index]));
+    }
+
+    restore_code_from_char(restore) {
+        return Buffer.from(restore.split('').map(item => {
+            let temp = item.charCodeAt(0);
+            if (temp > 47 && temp < 58)
+                temp -= 48;
+            else {
+                if (temp > 82) temp--; // S
+                if (temp > 78) temp--; // O
+                if (temp > 75) temp--; // L
+                if (temp > 72) temp--; // I
+                temp -= 55;
+            }
+            return temp;
+        }));
+    }
+
+    restore_code_to_char(data) {
+        return Array.from(data).map(item => {
+            let temp = item & 0x1f;
+            if (temp < 10)
+                temp += 48;
+            else {
+                temp += 55;
+                if (temp > 72) temp++; // I
+                if (temp > 75) temp++; // L
+                if (temp > 78) temp++; // O
+                if (temp > 82) temp++; // S
+            }
+            return String.fromCharCode(temp);
+        }).join('');
     }
 
     get region() {
@@ -145,7 +187,7 @@ class BattleAuthenticator {
             return this._restore_code;
         } else {
             let data = crypto.createHash('sha1').update(Buffer.concat([this.plain_serial, this._secret])).digest().slice(-10);
-            return BattleAuthenticatorCrypto.restore_code_to_char(data);
+            return this.restore_code_to_char(data);
         }
     }
 
@@ -173,72 +215,6 @@ class BattleAuthenticator {
         let mac_part = mac.substr(parseInt(mac[39], 16) * 2, 8);
         let code = String((parseInt(mac_part, 16) & 0x7fffffff) % 100000000);
         return Array(8 - code.length + 1).join('0') + code;
-    }
-}
-
-
-
-const RSA_MOD = bignum("104890018807986556874007710914205443157030159668034197186125678960287470894290830530618284943118405110896322835449099433232093151168250152146023319326491587651685252774820340995950744075665455681760652136576493028733914892166700899109836291180881063097461175643998356321993663868233366705340758102567742483097");
-const RSA_KEY = bignum(257);
-const keysize = 1024;
-
-class BattleAuthenticatorCrypto {
-
-    static encrypt(buffer) {
-        let data = bignum(buffer.toString('hex'), 16);
-        let n = data.pow(RSA_KEY).mod(RSA_MOD);
-        let ret = [];
-        while (n > 0) {
-            let m = n.mod(256);
-            ret.unshift(m.toNumber());
-            n = n.div(256);
-        }
-        return Buffer.from(ret);
-    }
-
-    static decrypt(buffer, key) {
-        let ret = [];
-        return Buffer.from(buffer.map((item, index) => item ^ key[index]));
-    }
-
-    static restore_code_from_char(restore) {
-        return Buffer.from(restore.split('').map(item => {
-            let temp = item.charCodeAt(0);
-            if (temp > 47 && temp < 58)
-                temp -= 48;
-            else {
-                if (temp > 82) temp--; // S
-                if (temp > 78) temp--; // O
-                if (temp > 75) temp--; // L
-                if (temp > 72) temp--; // I
-                temp -= 55;
-            }
-            return temp;
-        }));
-    }
-
-    static restore_code_to_char(data) {
-        return Array.from(data).map(item => {
-            let temp = item & 0x1f;
-            if (temp < 10)
-                temp += 48;
-            else {
-                temp += 55;
-                if (temp > 72) temp++; // I
-                if (temp > 75) temp++; // L
-                if (temp > 78) temp++; // O
-                if (temp > 82) temp++; // S
-            }
-            return String.fromCharCode(temp);
-        }).join('');
-    }
-
-    static bchexdec(hex) {
-
-    }
-
-    static safe_dump(data) {
-
     }
 }
 
