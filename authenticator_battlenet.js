@@ -12,6 +12,7 @@ const request = require('sync-request');
 
 const server = {
     'CN': 'http://mobile-service.battlenet.com.cn',
+    'KR': 'http://mobile-service.blizzard.com',
     'US': 'http://mobile-service.blizzard.com',
     'EU': 'http://mobile-service.blizzard.com'
 };
