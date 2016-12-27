@@ -1,6 +1,6 @@
 {
   "name": "node-bna",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Implementation of the Battle.net Mobile Authenticator in Node.",
   "main": "index.js",
   "scripts": {
