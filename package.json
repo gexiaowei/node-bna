@@ -1,21 +1,19 @@
 {
   "name": "node-bna",
   "version": "1.0.1",
-  "description": "",
+  "description": "Implementation of the Battle.net Mobile Authenticator in Node.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:gexiaowei/node-bna.git"
   },
   "author": "gandxiaowei@gmail.com",
   "license": "MIT",
   "dependencies": {
     "bignum": "^0.12.5",
     "sync-request": "^3.0.1"
-  },
-  "devDependencies": {
-    "babel-core": "^6.21.0",
-    "babel-loader": "^6.2.10",
-    "babel-preset-es2015": "^6.18.0",
-    "webpack": "^1.14.0"
   }
 }
